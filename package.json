@@ -1,6 +1,7 @@
 {
   "name": "emelia-mcp",
   "version": "1.0.0",
+  "packageManager": "npm@10.9.2",
   "bin": {
     "emelia": "./build/index.js"
   },
