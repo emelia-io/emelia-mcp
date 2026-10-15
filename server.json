@@ -1,0 +1,36 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.emelia/emelia",
+  "title": "Emelia",
+  "description": "Cold email and LinkedIn outreach: campaigns, lists, contacts, email and phone finder, warmup.",
+  "version": "0.1.0",
+  "websiteUrl": "https://emelia.io",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/emelia-io/emelia-mcp/master/assets/emelia-icon.png",
+      "mimeType": "image/png",
+      "sizes": ["512x512"],
+      "theme": "light"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/emelia-io/emelia-mcp/master/assets/emelia-icon-white.png",
+      "mimeType": "image/png",
+      "sizes": ["512x512"],
+      "theme": "dark"
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.emelia.io/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Your Emelia API key (Emelia app, Settings, API & Webhooks), as is or as Bearer <key>.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

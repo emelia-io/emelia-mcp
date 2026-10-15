@@ -1,0 +1,832 @@
+{
+	"$comment": "Generated from the tool definitions of the Emelia MCP server. Do not edit by hand.",
+	"server": {
+		"name": "emelia",
+		"title": "Emelia",
+		"version": "0.1.0",
+		"description": "Cold email and LinkedIn outreach: campaigns, lists, contacts, email and phone finder, warmup.",
+		"websiteUrl": "https://emelia.io",
+		"url": "https://mcp.emelia.io/mcp"
+	},
+	"toolsets": [
+		{
+			"id": "campaigns",
+			"title": "Campaigns",
+			"summary": "List and read campaigns, create drafts, statistics per step, latest activities and replies, manual tasks.",
+			"tools": [
+				"list_campaigns",
+				"get_campaign",
+				"create_campaign",
+				"get_campaign_stats",
+				"get_campaign_activities",
+				"list_manual_tasks",
+				"complete_manual_task"
+			]
+		},
+		{
+			"id": "lists",
+			"title": "Lists and contacts",
+			"summary": "Create, rename and delete lists; add contacts one by one or 100 at a time, update, find and delete them.",
+			"tools": [
+				"create_list",
+				"list_lists",
+				"get_list",
+				"rename_list",
+				"delete_list",
+				"get_list_contacts",
+				"get_contact",
+				"add_contact_to_list",
+				"add_contacts_to_list_bulk",
+				"update_contact",
+				"delete_contact",
+				"find_contact"
+			]
+		},
+		{
+			"id": "enrichment",
+			"title": "Enrichment",
+			"summary": "Find a professional email or a phone number, verify an email, read a job that was still running.",
+			"tools": [
+				"find_email",
+				"find_phone",
+				"verify_email",
+				"get_enrichment_result"
+			]
+		},
+		{
+			"id": "deliverability",
+			"title": "Deliverability",
+			"summary": "Sending mailboxes, disconnected mailboxes, warmup status and score, turning warmup on.",
+			"tools": [
+				"list_email_providers",
+				"get_warmup_status",
+				"set_warmup"
+			]
+		}
+	],
+	"tools": [
+		{
+			"name": "list_campaigns",
+			"title": "List campaigns",
+			"description": "List all campaigns of the Emelia account (multichannel: email + LinkedIn steps in one campaign), with their id, name and status.",
+			"toolset": "campaigns",
+			"effect": "read",
+			"annotations": {
+				"readOnlyHint": true
+			},
+			"credits": null,
+			"parameters": [],
+			"notes": []
+		},
+		{
+			"name": "get_campaign",
+			"title": "Get campaign details",
+			"description": "Get the full configuration of a campaign: status, schedule, steps, and the contact lists attached to it (recipients.lists) or excluded from it (recipients.excludedLists), each with id, name and contact count. To manage the contacts of an attached list (add, update, search, delete), use the list tools with the list id.",
+			"toolset": "campaigns",
+			"effect": "read",
+			"annotations": {
+				"readOnlyHint": true
+			},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "campaignId",
+					"type": "string",
+					"required": true,
+					"description": "Campaign ID"
+				}
+			],
+			"notes": []
+		},
+		{
+			"name": "create_campaign",
+			"title": "Create a campaign",
+			"description": "Create a new draft campaign with the given name. The campaign is created empty: steps, schedule and sending identities are configured in the Emelia app for now. Attach contacts by adding them to a list that the campaign uses.",
+			"toolset": "campaigns",
+			"effect": "write",
+			"annotations": {},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "name",
+					"type": "string",
+					"required": true,
+					"description": "Campaign name"
+				}
+			],
+			"notes": [
+				"The sequence, the schedule, the senders and the lists of the campaign are set in the Emelia app: the MCP server cannot change them yet."
+			]
+		},
+		{
+			"name": "get_campaign_stats",
+			"title": "Get campaign statistics",
+			"description": "Get the statistics of a campaign: global metrics (sent, opens, clicks, replies, bounces...) and a breakdown per step. Optionally restrict to a date range with start/end (ISO dates).",
+			"toolset": "campaigns",
+			"effect": "read",
+			"annotations": {
+				"readOnlyHint": true
+			},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "campaignId",
+					"type": "string",
+					"required": true,
+					"description": "Campaign ID"
+				},
+				{
+					"name": "detailed",
+					"type": "boolean",
+					"required": false,
+					"description": "Include detailed statistics"
+				},
+				{
+					"name": "start",
+					"type": "string",
+					"required": false,
+					"description": "Start date (ISO 8601) to filter the stats"
+				},
+				{
+					"name": "end",
+					"type": "string",
+					"required": false,
+					"description": "End date (ISO 8601) to filter the stats"
+				}
+			],
+			"notes": [
+				"`end` is an exact bound: a date without a time excludes that day.",
+				"On an unknown campaign id the error reads like an invalid API key. Check the campaign id first."
+			]
+		},
+		{
+			"name": "get_campaign_activities",
+			"title": "Get campaign activities",
+			"description": "Get the activity feed of a campaign (sent, opened, clicked, replied, bounced, LinkedIn events...). Replied activities include the reply content. Filter by activity type or contact.",
+			"toolset": "campaigns",
+			"effect": "read",
+			"annotations": {
+				"readOnlyHint": true
+			},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "campaignId",
+					"type": "string",
+					"required": true,
+					"description": "Campaign ID"
+				},
+				{
+					"name": "type",
+					"type": "string",
+					"required": false,
+					"description": "Filter by activity type (e.g. REPLIED, OPENED, SENT)"
+				},
+				{
+					"name": "contactId",
+					"type": "string",
+					"required": false,
+					"description": "Filter by contact ID"
+				},
+				{
+					"name": "versionId",
+					"type": "string",
+					"required": false,
+					"description": "Filter by A/B version ID"
+				}
+			],
+			"notes": [
+				"Returns the most recent page only (30 activities). For the full history, use the REST API or the CSV export of the campaign.",
+				"Main `type` values: `SENT`, `OPENED`, `CLICKED`, `MAIL_REPLIED`, `BOUNCED`, `UNSUBSCRIBED`, `VISITED`, `INVITED`, `ACCEPTED`, `MESSAGE_SENT`, `INMAIL_SENT`, `LINKEDIN_REPLIED`, `WHATSAPP_REPLIED`, `TASK_COMPLETED`, `TASK_FAILED`. For replies, use `MAIL_REPLIED` or `LINKEDIN_REPLIED` (not `REPLIED`)."
+			]
+		},
+		{
+			"name": "list_manual_tasks",
+			"title": "List pending manual tasks",
+			"description": "List the pending manual tasks of a campaign (steps that require a human action, e.g. a LinkedIn touch done by hand). Each task carries the contact, the step id (taskId) and its name.",
+			"toolset": "campaigns",
+			"effect": "read",
+			"annotations": {
+				"readOnlyHint": true
+			},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "campaignId",
+					"type": "string",
+					"required": true,
+					"description": "Campaign ID"
+				},
+				{
+					"name": "stepId",
+					"type": "string",
+					"required": false,
+					"description": "Filter tasks by step ID"
+				}
+			],
+			"notes": []
+		},
+		{
+			"name": "complete_manual_task",
+			"title": "Set a manual task status",
+			"description": "Mark a pending manual task as completed ('ok') or failed ('ko') for a contact in a campaign.",
+			"toolset": "campaigns",
+			"effect": "write",
+			"annotations": {},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "campaignId",
+					"type": "string",
+					"required": true,
+					"description": "Campaign ID"
+				},
+				{
+					"name": "contactId",
+					"type": "string",
+					"required": true,
+					"description": "Contact ID"
+				},
+				{
+					"name": "taskId",
+					"type": "string",
+					"required": true,
+					"description": "The step ID of the manual task"
+				},
+				{
+					"name": "status",
+					"type": "string",
+					"required": true,
+					"description": "'ok' = completed, 'ko' = failed",
+					"enum": [
+						"ok",
+						"ko"
+					]
+				}
+			],
+			"notes": []
+		},
+		{
+			"name": "create_list",
+			"title": "Create a list",
+			"description": "Create an empty contact list. Then add contacts with add_contact_to_list or add_contacts_to_list_bulk. Attach the list to a campaign in the Emelia app to have its contacts flow into the campaign automatically.",
+			"toolset": "lists",
+			"effect": "write",
+			"annotations": {},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "name",
+					"type": "string",
+					"required": true,
+					"description": "List name"
+				}
+			],
+			"notes": []
+		},
+		{
+			"name": "list_lists",
+			"title": "List all lists",
+			"description": "List the contact lists of the account, with pagination, name search and filters. Lists created by a LinkedIn scrape appear here too (filter with source). Returns each list with its id, name and contact counters.",
+			"toolset": "lists",
+			"effect": "read",
+			"annotations": {
+				"readOnlyHint": true
+			},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "page",
+					"type": "integer",
+					"required": false,
+					"description": "Page number (default 1)"
+				},
+				{
+					"name": "limit",
+					"type": "integer",
+					"required": false,
+					"description": "Page size (default 25)"
+				},
+				{
+					"name": "search",
+					"type": "string",
+					"required": false,
+					"description": "Search on list name"
+				},
+				{
+					"name": "source",
+					"type": "string",
+					"required": false,
+					"description": "Filter by import source"
+				},
+				{
+					"name": "status",
+					"type": "string",
+					"required": false,
+					"description": "Filter by list status"
+				},
+				{
+					"name": "tags",
+					"type": "string",
+					"required": false,
+					"description": "Comma-separated tag IDs"
+				},
+				{
+					"name": "sortBy",
+					"type": "string",
+					"required": false,
+					"enum": [
+						"name",
+						"leads",
+						"emails",
+						"phones",
+						"createdAt"
+					]
+				},
+				{
+					"name": "sortDir",
+					"type": "string",
+					"required": false,
+					"enum": [
+						"asc",
+						"desc"
+					]
+				}
+			],
+			"notes": []
+		},
+		{
+			"name": "get_list",
+			"title": "Get list details",
+			"description": "Get a list by id: name, contact counters (leads, emails, phones, linkedins), source and status.",
+			"toolset": "lists",
+			"effect": "read",
+			"annotations": {
+				"readOnlyHint": true
+			},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "listId",
+					"type": "string",
+					"required": true,
+					"description": "List ID"
+				}
+			],
+			"notes": []
+		},
+		{
+			"name": "rename_list",
+			"title": "Rename a list",
+			"description": "Rename a list.",
+			"toolset": "lists",
+			"effect": "write",
+			"annotations": {},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "listId",
+					"type": "string",
+					"required": true,
+					"description": "List ID"
+				},
+				{
+					"name": "name",
+					"type": "string",
+					"required": true,
+					"description": "New name"
+				}
+			],
+			"notes": []
+		},
+		{
+			"name": "delete_list",
+			"title": "Delete a list",
+			"description": "Permanently delete a list AND all its contacts. This cannot be undone; confirm with the user before calling it.",
+			"toolset": "lists",
+			"effect": "delete",
+			"annotations": {
+				"destructiveHint": true
+			},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "listId",
+					"type": "string",
+					"required": true,
+					"description": "List ID"
+				}
+			],
+			"notes": [
+				"Deletes every contact of the list for good."
+			]
+		},
+		{
+			"name": "get_list_contacts",
+			"title": "List contacts of a list",
+			"description": "Paginated listing of the contacts of a list. To check whether a specific contact exists (and get its leadId for update/delete), pass email or linkedinUrl instead: it returns the exact matches only. email and linkedinUrl are mutually exclusive and take precedence over search/pagination.",
+			"toolset": "lists",
+			"effect": "read",
+			"annotations": {
+				"readOnlyHint": true
+			},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "listId",
+					"type": "string",
+					"required": true,
+					"description": "List ID"
+				},
+				{
+					"name": "email",
+					"type": "string",
+					"required": false,
+					"description": "Exact contact lookup by email (case-insensitive)"
+				},
+				{
+					"name": "linkedinUrl",
+					"type": "string",
+					"required": false,
+					"description": "Exact contact lookup by LinkedIn profile URL"
+				},
+				{
+					"name": "page",
+					"type": "integer",
+					"required": false,
+					"description": "Page number (default 1)"
+				},
+				{
+					"name": "pageSize",
+					"type": "integer",
+					"required": false,
+					"description": "Page size (default 50, max 100)"
+				},
+				{
+					"name": "search",
+					"type": "string",
+					"required": false,
+					"description": "Free-text search"
+				},
+				{
+					"name": "sortBy",
+					"type": "string",
+					"required": false,
+					"description": "Field to sort by"
+				},
+				{
+					"name": "sortDir",
+					"type": "string",
+					"required": false,
+					"enum": [
+						"asc",
+						"desc"
+					]
+				}
+			],
+			"notes": []
+		},
+		{
+			"name": "get_contact",
+			"title": "Get a contact",
+			"description": "Get a single contact of a list by its leadId (returned by add_contact_to_list or the email/linkedinUrl lookup of get_list_contacts).",
+			"toolset": "lists",
+			"effect": "read",
+			"annotations": {
+				"readOnlyHint": true
+			},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "listId",
+					"type": "string",
+					"required": true,
+					"description": "List ID"
+				},
+				{
+					"name": "leadId",
+					"type": "string",
+					"required": true,
+					"description": "Contact (lead) ID"
+				}
+			],
+			"notes": []
+		},
+		{
+			"name": "add_contact_to_list",
+			"title": "Add a contact to a list",
+			"description": "Add a single contact to a list. If the list is used by one or several campaigns, the contact automatically enters those campaigns; this is the standard way to feed a running campaign. Flat object: field names as keys (contact fields like firstName/email/phone/linkedinUrlProfile, company fields like companyName/websiteUrl, or your custom variables; human-readable names work too). Any unrecognized key creates a new custom variable automatically. Duplicates (same email or LinkedIn URL already in the list) are not re-created: the response returns the existing leadId with duplicate: true. Set updateIfExists to true to update the existing contact instead (add-or-update).",
+			"toolset": "lists",
+			"effect": "write",
+			"annotations": {},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "listId",
+					"type": "string",
+					"required": true,
+					"description": "List ID"
+				},
+				{
+					"name": "contact",
+					"type": "object",
+					"required": true,
+					"description": "The contact fields, flat key → value"
+				},
+				{
+					"name": "updateIfExists",
+					"type": "boolean",
+					"required": false,
+					"description": "Update the existing contact when a duplicate is found"
+				}
+			],
+			"notes": [
+				"Contact fields are a flat object: standard fields (`firstName`, `lastName`, `email`, `phone`, `linkedinUrlProfile`, `jobTitle`), company fields (`companyName`, `websiteUrl`) or your custom variables."
+			]
+		},
+		{
+			"name": "add_contacts_to_list_bulk",
+			"title": "Add contacts in bulk",
+			"description": "Add up to 100 contacts to a list in one call (same behavior as add_contact_to_list for each row: campaign propagation, duplicate detection, updateIfExists). Flat object: field names as keys (contact fields like firstName/email/phone/linkedinUrlProfile, company fields like companyName/websiteUrl, or your custom variables; human-readable names work too). Any unrecognized key creates a new custom variable automatically. Rows are processed independently; the response reports created/duplicates/updated/failed counts and a per-row result.",
+			"toolset": "lists",
+			"effect": "write",
+			"annotations": {},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "listId",
+					"type": "string",
+					"required": true,
+					"description": "List ID"
+				},
+				{
+					"name": "contacts",
+					"type": "array of object",
+					"required": true,
+					"description": "The contacts, one flat object each (max 100)",
+					"minItems": 1,
+					"maxItems": 100
+				},
+				{
+					"name": "updateIfExists",
+					"type": "boolean",
+					"required": false,
+					"description": "Update existing contacts when duplicates are found"
+				}
+			],
+			"notes": [
+				"Loading 1,000 contacts is 10 calls of 100, not 1,000 single calls."
+			]
+		},
+		{
+			"name": "update_contact",
+			"title": "Update a contact",
+			"description": "Update a contact by its leadId (its list is derived automatically). Flat object: field names as keys (contact fields like firstName/email/phone/linkedinUrlProfile, company fields like companyName/websiteUrl, or your custom variables; human-readable names work too). Any unrecognized key creates a new custom variable automatically. The fields you send overwrite the contact's values; fields you don't send stay untouched. If the contact's list is used by campaigns, the updated values are propagated to them.",
+			"toolset": "lists",
+			"effect": "write",
+			"annotations": {},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "contactId",
+					"type": "string",
+					"required": true,
+					"description": "Contact (lead) ID"
+				},
+				{
+					"name": "fields",
+					"type": "object",
+					"required": true,
+					"description": "The fields to update, flat key → value"
+				}
+			],
+			"notes": []
+		},
+		{
+			"name": "delete_contact",
+			"title": "Delete a contact",
+			"description": "Permanently delete a contact from a list (and its company data). If the list is used by campaigns, the contact is also removed from those campaigns. Cannot be undone; confirm with the user before calling it. Find the leadId with the email/linkedinUrl lookup of get_list_contacts.",
+			"toolset": "lists",
+			"effect": "delete",
+			"annotations": {
+				"destructiveHint": true
+			},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "listId",
+					"type": "string",
+					"required": true,
+					"description": "List ID"
+				},
+				{
+					"name": "leadId",
+					"type": "string",
+					"required": true,
+					"description": "Contact (lead) ID"
+				}
+			],
+			"notes": [
+				"Deletes the contact for good and removes it from its campaigns."
+			]
+		},
+		{
+			"name": "find_contact",
+			"title": "Find a contact across all lists",
+			"description": "Search a contact across ALL the lists of the account by email address or LinkedIn profile URL. Returns the lists that contain the contact and the contact data itself. Use this to answer \"do we already have this person?\" or to locate a contact before updating or deleting it.",
+			"toolset": "lists",
+			"effect": "read",
+			"annotations": {
+				"readOnlyHint": true
+			},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "query",
+					"type": "string",
+					"required": true,
+					"description": "Email address or LinkedIn profile URL"
+				}
+			],
+			"notes": []
+		},
+		{
+			"name": "find_email",
+			"title": "Find an email address",
+			"description": "Consumes credits. Find the professional email address of a person with Emelia's email finder, from their full name and company. Waits for the result (usually a few seconds). qualification is 'valid' or 'invalid'.",
+			"toolset": "enrichment",
+			"effect": "credits",
+			"annotations": {},
+			"credits": "1 credit, refunded when no email is found",
+			"parameters": [
+				{
+					"name": "fullname",
+					"type": "string",
+					"required": true,
+					"description": "Full name of the person"
+				},
+				{
+					"name": "companyName",
+					"type": "string",
+					"required": true,
+					"description": "Company name"
+				},
+				{
+					"name": "companyWebsite",
+					"type": "string",
+					"required": false,
+					"description": "Company website URL (improves accuracy)"
+				},
+				{
+					"name": "country",
+					"type": "string",
+					"required": false,
+					"description": "Country code (e.g. FR, US) to localize the search"
+				}
+			],
+			"notes": [
+				"Always pass `country` (an ISO code such as `FR` or `US`): the tool marks it optional, but the search is refused without it.",
+				"A second call starts a second search, billed again. If a job is still running, read it with `get_enrichment_result`."
+			]
+		},
+		{
+			"name": "find_phone",
+			"title": "Find a phone number",
+			"description": "Consumes credits. Find the phone number of a person with Emelia's phone finder, from their LinkedIn profile URL. Waits for the result. qualification is 'found' or 'not_found'.",
+			"toolset": "enrichment",
+			"effect": "credits",
+			"annotations": {},
+			"credits": "50 credits, refunded when no number is found",
+			"parameters": [
+				{
+					"name": "linkedinUrl",
+					"type": "string",
+					"required": true,
+					"description": "LinkedIn profile URL of the person"
+				}
+			],
+			"notes": [
+				"A number already found in the last 6 months comes back at once and costs the same."
+			]
+		},
+		{
+			"name": "verify_email",
+			"title": "Verify an email address",
+			"description": "Consumes credits. Verify the deliverability of an email address with Emelia's email verifier. Waits for the result. qualification is 'valid' or 'invalid'.",
+			"toolset": "enrichment",
+			"effect": "credits",
+			"annotations": {},
+			"credits": "0.25 credit, never refunded",
+			"parameters": [
+				{
+					"name": "email",
+					"type": "string",
+					"required": true,
+					"description": "Email address to verify"
+				}
+			],
+			"notes": []
+		},
+		{
+			"name": "get_enrichment_result",
+			"title": "Get an enrichment job result",
+			"description": "Fetch the result of a previously started enrichment job (find_email, find_phone or verify_email) by its jobId. Use it when one of those tools reported the job was still running.",
+			"toolset": "enrichment",
+			"effect": "read",
+			"annotations": {
+				"readOnlyHint": true
+			},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "type",
+					"type": "string",
+					"required": true,
+					"description": "Which enrichment started the job",
+					"enum": [
+						"find_email",
+						"find_phone",
+						"verify_email"
+					]
+				},
+				{
+					"name": "jobId",
+					"type": "string",
+					"required": true,
+					"description": "The job ID"
+				}
+			],
+			"notes": []
+		},
+		{
+			"name": "list_email_providers",
+			"title": "List email providers",
+			"description": "List the sending email accounts (providers) connected to Emelia, with sensitive data masked. Useful for deliverability audits: spot disconnected accounts with disconnectedOnly.",
+			"toolset": "deliverability",
+			"effect": "read",
+			"annotations": {
+				"readOnlyHint": true
+			},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "disconnectedOnly",
+					"type": "boolean",
+					"required": false,
+					"description": "Only return disconnected providers"
+				}
+			],
+			"notes": []
+		},
+		{
+			"name": "get_warmup_status",
+			"title": "Get warmup status",
+			"description": "Get the warmup status of the email providers (10 per page): running or not, score, emails sent/received, spam count. A low score signals a deliverability problem.",
+			"toolset": "deliverability",
+			"effect": "read",
+			"annotations": {
+				"readOnlyHint": true
+			},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "page",
+					"type": "integer",
+					"required": false,
+					"description": "Page number (10 results per page)"
+				}
+			],
+			"notes": [
+				"Every mailbox comes back in one call, whatever `page` you pass."
+			]
+		},
+		{
+			"name": "set_warmup",
+			"title": "Enable or disable warmup",
+			"description": "Enable or disable the email warmup for a provider (providerId comes from list_email_providers or get_warmup_status).",
+			"toolset": "deliverability",
+			"effect": "write",
+			"annotations": {},
+			"credits": null,
+			"parameters": [
+				{
+					"name": "providerId",
+					"type": "string",
+					"required": true,
+					"description": "Email provider ID"
+				},
+				{
+					"name": "enabled",
+					"type": "boolean",
+					"required": true,
+					"description": "true to enable warmup, false to disable it"
+				}
+			],
+			"notes": [
+				"Turning the warmup off (`enabled: false`) does not work yet: turn it off in the Emelia app."
+			]
+		}
+	],
+	"resources": [],
+	"prompts": []
+}

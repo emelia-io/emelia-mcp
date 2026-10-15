@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/emelia-io/emelia-mcp/blob/master/SECURITY.md
+    about: Please do not open a public issue. Email contact@emelia.io with the subject "Security".
+  - name: Help with your Emelia account
+    url: https://emelia.io
+    about: For questions about your account, your plan, your credits or your campaigns, email contact@emelia.io.
+  - name: Documentation
+    url: https://docs.emelia.io/docs/ai/mcp
+    about: Setup guides, tools, rate limits and credits.

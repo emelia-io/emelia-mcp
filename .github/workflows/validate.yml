@@ -1,0 +1,84 @@
+name: Validate
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  schemas:
+    name: server.json and glama.json
+    runs-on: ubuntu-latest
+    env:
+      MCP_PUBLISHER_VERSION: v1.8.1
+      MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install jsonschema
+        run: python -m pip install "jsonschema[format-nongpl]>=4.23,<5"
+
+      - name: Validate against the MCP registry and Glama schemas, check the icons
+        run: python scripts/validate_schemas.py --check-icons
+
+      - name: Install mcp-publisher (pinned, checksum verified)
+        run: |
+          curl -fsSL -o mcp-publisher.tar.gz \
+            "https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum --check
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
+
+      - name: Validate server.json with the official registry rules
+        run: ./mcp-publisher validate server.json
+
+  docs:
+    name: Generated docs and JSON files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: docs/TOOLS.md and the README tool summary match tools.json
+        run: node scripts/generate-tools-md.mjs --check
+
+      - name: Every JSON file parses
+        run: |
+          git ls-files -z '*.json' | xargs -0 -n1 node -e '
+            const file = process.argv[1]
+            JSON.parse(require("node:fs").readFileSync(file, "utf8"))
+            console.log("ok", file)
+          '
+
+  hygiene:
+    name: Keys and pinned bridge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: No API key committed
+        run: |
+          # An Emelia API key is 48 letters and digits.
+          if git grep -nE '(^|[^A-Za-z0-9])[A-Za-z0-9]{48}([^A-Za-z0-9]|$)' -- . ':!assets'; then
+            echo "Something that looks like an API key is committed. Remove it and revoke the key."
+            exit 1
+          fi
+          echo "No key found"
+
+      - name: mcp-remote is pinned to a version
+        run: |
+          if git grep -nE '"mcp-remote"|npx -y mcp-remote( |$)' -- README.md examples; then
+            echo "Pin mcp-remote to a reviewed version (mcp-remote@<version>)."
+            exit 1
+          fi
+          echo "mcp-remote is pinned"

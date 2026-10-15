@@ -1,0 +1,43 @@
+name: Tool request
+description: Suggest a new tool, or a change to an existing one.
+title: "[Tool request]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tell us what you would like your assistant to do in Emelia. The current tools are listed in [docs/TOOLS.md](https://github.com/emelia-io/emelia-mcp/blob/master/docs/TOOLS.md).
+  - type: textarea
+    id: goal
+    attributes:
+      label: What do you want to do?
+      description: The task, in your own words.
+    validations:
+      required: true
+  - type: textarea
+    id: prompt
+    attributes:
+      label: Example request to your assistant
+      placeholder: "Start my Q4 SaaS founders campaign once the sequence is written."
+  - type: dropdown
+    id: effect
+    attributes:
+      label: What would the tool do?
+      options:
+        - Read only
+        - Change data in Emelia (campaigns, lists, contacts, settings)
+        - Spend credits
+        - Send email or start a campaign
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: api-route
+    attributes:
+      label: Matching API route
+      description: If you know it, the route of the Emelia API (docs.emelia.io) the tool would use.
+  - type: textarea
+    id: today
+    attributes:
+      label: How do you do it today?
+      description: In the Emelia app, through the REST API, with several tool calls, or not at all.

@@ -1,0 +1,68 @@
+name: Bug report
+description: Something does not work as documented when you connect to or use the Emelia MCP server.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. This repository is public: **never paste an API key, a contact list or any personal data.**
+        For a security vulnerability, do not open an issue: follow [SECURITY.md](https://github.com/emelia-io/emelia-mcp/blob/master/SECURITY.md).
+  - type: dropdown
+    id: client
+    attributes:
+      label: MCP client
+      options:
+        - Claude (claude.ai or Claude Desktop, custom connector)
+        - Claude Desktop (configuration file and mcp-remote)
+        - Claude Code
+        - Cursor
+        - VS Code
+        - Windsurf (Devin Desktop)
+        - mcp-remote
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: client-version
+    attributes:
+      label: Client name and version
+      placeholder: "Name and version, as shown in the About menu of the client"
+  - type: input
+    id: tool
+    attributes:
+      label: Tool or step involved
+      description: A tool name, or the step of the connection that failed.
+      placeholder: "get_campaign_stats, or the first connection"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Error code and message
+      description: For example `401 Missing Emelia API key`, with the message. Remove any key first.
+      render: text
+  - type: textarea
+    id: config
+    attributes:
+      label: Client configuration
+      description: Your configuration for the emelia server, with the API key replaced by REDACTED.
+      render: json
+  - type: input
+    id: when
+    attributes:
+      label: When did it happen?
+      description: Date and time, with the timezone.
+      placeholder: "2026-11-02 14:30 UTC+1"
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Before you submit
+      options:
+        - label: This report contains no API key, password or personal data of my contacts.
+          required: true
