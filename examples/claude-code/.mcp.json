@@ -2,10 +2,7 @@
   "mcpServers": {
     "emelia": {
       "type": "http",
-      "url": "https://mcp.emelia.io/mcp",
-      "headers": {
-        "Authorization": "${EMELIA_API_KEY}"
-      }
+      "url": "https://mcp.emelia.io/mcp"
     }
   }
 }

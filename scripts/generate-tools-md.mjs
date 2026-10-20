@@ -18,11 +18,24 @@ const TOOLS_JSON = join(ROOT, 'tools.json')
 const TOOLS_MD = join(ROOT, 'docs', 'TOOLS.md')
 const README = join(ROOT, 'README.md')
 
-const FAMILY_ORDER = ['campaigns', 'lists', 'enrichment', 'deliverability']
-const EFFECTS = { read: 'Read', write: 'Write', delete: 'Delete', credits: 'Credits' }
+const CATEGORY_ORDER = [
+	'campaigns',
+	'lists',
+	'enrichment',
+	'linkedin_scraper',
+	'mailboxes',
+	'account',
+	'inbox',
+	'inbox_settings',
+]
+// Categories that the server lists only once the Inbox was opened in the Emelia app.
+const INBOX_CATEGORIES = ['inbox', 'inbox_settings']
+// The "delete" effect covers every tool flagged destructiveHint: deletions, and in
+// the inbox sending, forwarding or moving emails to Trash or Spam.
+const EFFECTS = { read: 'Read', write: 'Write', delete: 'Destructive', credits: 'Credits' }
 const BLOCK_START = '<!-- generated:tools-summary:start -->'
 const BLOCK_END = '<!-- generated:tools-summary:end -->'
-const COUNT_PATTERN = /\*\*\d+ tools?\*\* in \*\*\d+ famil(?:y|ies)\*\*/g
+const COUNT_PATTERN = /\*\*\d+ tools?\*\* in \*\*\d+ categor(?:y|ies)\*\*/g
 
 const COMMENT =
 	'Generated from the tool definitions of the Emelia MCP server. Do not edit by hand.'
@@ -59,7 +72,24 @@ const TOOL_NAME = new RegExp(
 
 /** Table cell text, with the tool names it mentions formatted as code. */
 function prose(text) {
-	return cell(text).replace(TOOL_NAME, '`$1`')
+	return inline(cell(text))
+}
+
+/** Markdown text, "<" escaped and tool names formatted as code outside code spans. */
+function inline(text) {
+	return text
+		.split(/(`[^`]*`)/)
+		.map((part, index) => (index % 2 ? part : part.replace(/</g, '&lt;').replace(TOOL_NAME, '`$1`')))
+		.join('')
+}
+
+/** A tool description as Markdown, with its line breaks, lists and bold headings kept. */
+function block(text) {
+	return String(text ?? '')
+		.split(/\r?\n/)
+		.map((line) => inline(line.trimEnd()))
+		.join('\n')
+		.trim()
 }
 
 function plural(count, word, many = `${word}s`) {
@@ -67,8 +97,8 @@ function plural(count, word, many = `${word}s`) {
 }
 
 function rank(id) {
-	const index = FAMILY_ORDER.indexOf(id)
-	return index === -1 ? FAMILY_ORDER.length : index
+	const index = CATEGORY_ORDER.indexOf(id)
+	return index === -1 ? CATEGORY_ORDER.length : index
 }
 
 function fail(message) {
@@ -76,17 +106,17 @@ function fail(message) {
 	process.exit(1)
 }
 
-// Families in display order, each with its tools in the order of tools.json.
-const families = [...data.toolsets]
+// Categories in display order, each with its tools in the order of tools.json.
+const categories = [...data.toolsets]
 	.sort((a, b) => rank(a.id) - rank(b.id))
-	.map((family) => ({
-		...family,
-		list: data.tools.filter((tool) => tool.toolset === family.id),
+	.map((category) => ({
+		...category,
+		list: data.tools.filter((tool) => tool.toolset === category.id),
 	}))
 
 for (const tool of data.tools) {
-	if (!families.some((family) => family.id === tool.toolset)) {
-		fail(`tool ${tool.name} belongs to an unknown family "${tool.toolset}".`)
+	if (!categories.some((category) => category.id === tool.toolset)) {
+		fail(`tool ${tool.name} belongs to an unknown category "${tool.toolset}".`)
 	}
 	if (!EFFECTS[tool.effect]) {
 		fail(`tool ${tool.name} has an unknown effect "${tool.effect}".`)
@@ -95,15 +125,17 @@ for (const tool of data.tools) {
 		fail(`tool ${tool.name} spends credits but does not say how many.`)
 	}
 }
-for (const family of families) {
-	const listed = family.list.map((tool) => tool.name).join(',')
-	if (listed !== family.tools.join(',')) {
-		fail(`the tools of family "${family.id}" do not match its tool list.`)
+for (const category of categories) {
+	const listed = category.list.map((tool) => tool.name).join(',')
+	if (listed !== category.tools.join(',')) {
+		fail(`the tools of category "${category.id}" do not match its tool list.`)
 	}
 }
 
 const total = data.tools.length
-const familyWord = (count) => plural(count, 'family', 'families')
+const categoryWord = (count) => plural(count, 'category', 'categories')
+const inboxTools = data.tools.filter((tool) => INBOX_CATEGORIES.includes(tool.toolset))
+const inboxNames = INBOX_CATEGORIES.map((id) => `\`${id}\``).join(' and ')
 
 function countBy(tools, effect) {
 	return tools.filter((tool) => tool.effect === effect).length
@@ -132,9 +164,10 @@ function effectSummary(tools) {
 function parameterType(parameter) {
 	if (parameter.enum) return parameter.enum.map((value) => `\`${value}\``).join(', ')
 	let type = parameter.type
-	if (parameter.minItems !== undefined || parameter.maxItems !== undefined) {
-		type += `, ${parameter.minItems ?? 0} to ${parameter.maxItems ?? 'any'} items`
-	}
+	const { minItems, maxItems } = parameter
+	if (minItems !== undefined && maxItems !== undefined) type += `, ${minItems} to ${maxItems} items`
+	else if (minItems !== undefined) type += `, at least ${plural(minItems, 'item')}`
+	else if (maxItems !== undefined) type += `, ${maxItems} items at most`
 	return type
 }
 
@@ -144,49 +177,49 @@ function buildToolsMd() {
 		'',
 		'# Tools',
 		'',
-		`Version ${data.server.version} of the Emelia MCP server exposes **${plural(total, 'tool')}** in **${familyWord(families.length)}**. This page is generated from [\`tools.json\`](../tools.json), the machine-readable list of the tools as the server declares them. The server always lists every tool, whatever the family, and has no prompts or resources.`,
+		`Version ${data.server.version} of the Emelia MCP server exposes **${plural(total, 'tool')}** in **${categoryWord(categories.length)}**. This page is generated from [\`tools.json\`](../tools.json), the machine-readable list of the tools as the server declares them. Without the \`toolsets\` parameter the server lists every category; with \`?toolsets=\` it lists only the categories you name (see [Tool categories](../README.md#tool-categories)). The ${plural(inboxTools.length, 'tool')} of the ${inboxNames} categories appear only once the Inbox was opened in the Emelia app; until then the server lists the other ${total - inboxTools.length}. The server has no prompts or resources.`,
 		'',
 		'Back to the [README](../README.md).',
 		'',
-		'| Family | Tools | Read | Write | Delete | Credits |',
+		`| Category | Tools | ${Object.values(EFFECTS).join(' | ')} |`,
 		'| --- | ---: | ---: | ---: | ---: | ---: |',
-		...families.map(
-			(family) =>
-				`| [${family.title}](#${anchor(family.title)}) (\`${family.id}\`) | ${family.list.length} | ${countBy(family.list, 'read')} | ${countBy(family.list, 'write')} | ${countBy(family.list, 'delete')} | ${countBy(family.list, 'credits')} |`
+		...categories.map(
+			(category) =>
+				`| [${category.title}](#${anchor(category.title)}) (\`${category.id}\`) | ${category.list.length} | ${countBy(category.list, 'read')} | ${countBy(category.list, 'write')} | ${countBy(category.list, 'delete')} | ${countBy(category.list, 'credits')} |`
 		),
 		`| **Total** | **${total}** | **${countBy(data.tools, 'read')}** | **${countBy(data.tools, 'write')}** | **${countBy(data.tools, 'delete')}** | **${countBy(data.tools, 'credits')}** |`,
 		'',
 		'## How to read the tables',
 		'',
-		'- **Read**: the tool reads your Emelia account and changes nothing (`readOnlyHint`).',
-		'- **Write**: the tool creates or changes data in your Emelia account (campaign drafts, lists, contacts, manual tasks, warmup). No tool sends an email or starts a campaign.',
-		'- **Delete**: the tool deletes data for good (`destructiveHint`). Most clients ask you before running it; keep that confirmation on.',
-		'- **Credits**: the tool spends Emelia credits. The cost is in the Notes column.',
-		'- Every tool calls the Emelia REST API with your API key and returns its JSON response. No tool declares an output schema yet.',
+		'- **Read**: the tool reads your Emelia account or your inbox and changes nothing (`readOnlyHint`).',
+		'- **Write**: the tool creates or changes data in your Emelia account or your inbox. `start_campaign` and `send_campaign_test_email` are Write tools that send real messages.',
+		'- **Destructive**: the tool is flagged `destructiveHint`: it deletes data or, in the inbox, sends, forwards or moves emails to Trash or Spam. Most clients ask you before running it; keep that confirmation on.',
+		'- **Credits**: the tool spends Emelia credits. The cost is in the Notes column; prices are on [docs.emelia.io](https://docs.emelia.io/docs/credits).',
+		`- The other tools call the Emelia REST API with your sign-in or your API key and return its JSON response, without an output schema. The tools of the ${inboxNames} categories work on the Inbox of the same account and declare an output schema.`,
 	]
 
-	for (const family of families) {
+	for (const category of categories) {
 		lines.push(
 			'',
-			`## ${family.title}`,
+			`## ${category.title}`,
 			'',
-			`Family \`${family.id}\`, ${plural(family.list.length, 'tool')}: ${prose(family.summary)}`,
+			`Category \`${category.id}\`, ${plural(category.list.length, 'tool')}: ${prose(category.summary)}`,
 			'',
 			'| Tool | Description | Effect | Notes |',
 			'| --- | --- | --- | --- |',
-			...family.list.map(
+			...category.list.map(
 				(tool) =>
 					`| [\`${tool.name}\`](#${tool.name}) | ${cell(tool.title)} | ${EFFECTS[tool.effect]} | ${cell(tool.credits ?? '')} |`
 			)
 		)
-		for (const tool of family.list) {
+		for (const tool of category.list) {
 			lines.push(
 				'',
 				`### ${tool.name}`,
 				'',
 				`**${cell(tool.title)}**. Effect: ${EFFECTS[tool.effect]}. Annotations: ${annotationList(tool)}.`,
 				'',
-				prose(tool.description)
+				block(tool.description)
 			)
 			if (tool.credits) lines.push('', `Cost: ${tool.credits}.`)
 			lines.push('')
@@ -210,7 +243,7 @@ function buildToolsMd() {
 		'',
 		'## Not covered yet',
 		'',
-		'Starting or pausing a campaign, writing its sequence, choosing its senders and schedule, LinkedIn extractions and the blacklist are in the [Emelia REST API](https://docs.emelia.io/docs/all-endpoints) and in the Emelia app, not in the MCP server yet. To ask for a tool, [open a tool request](https://github.com/emelia-io/emelia-mcp/issues/new/choose).',
+		'Only the legacy campaigns, the email only or LinkedIn only campaigns of the previous Emelia campaign system, have no tools: use their [REST API routes](https://docs.emelia.io/docs/campaigns/legacy). To ask for a tool, [open a tool request](https://github.com/emelia-io/emelia-mcp/issues/new/choose).',
 		''
 	)
 	return lines.join('\n')
@@ -219,16 +252,16 @@ function buildToolsMd() {
 function buildReadmeBlock() {
 	return [
 		BLOCK_START,
-		'| Family | Tools | What it covers |',
+		'| Category | Tools | What it covers |',
 		'| --- | ---: | --- |',
-		...families.map(
-			(family) =>
-				`| [${family.title}](docs/TOOLS.md#${anchor(family.title)}) | ${family.list.length} | ${prose(family.summary)} |`
+		...categories.map(
+			(category) =>
+				`| [${category.title}](docs/TOOLS.md#${anchor(category.title)}) | ${category.list.length} | ${prose(category.summary)} |`
 		),
 		`| **Total** | **${total}** | ${effectSummary(data.tools)} |`,
 		'',
-		...families.flatMap((family) => [
-			`**${family.title}**: ${family.list.map((tool) => `\`${tool.name}\``).join(', ')}`,
+		...categories.flatMap((category) => [
+			`**${category.title}**: ${category.list.map((tool) => `\`${tool.name}\``).join(', ')}`,
 			'',
 		]),
 		BLOCK_END,
@@ -243,14 +276,14 @@ function updateReadme(readme) {
 		process.exit(1)
 	}
 	if (!readme.match(COUNT_PATTERN)) {
-		console.error('README.md: missing the "**N tools** in **N families**" sentence.')
+		console.error('README.md: missing the "**N tools** in **N categories**" sentence.')
 		process.exit(1)
 	}
 	const updated =
 		readme.slice(0, start) + buildReadmeBlock() + readme.slice(end + BLOCK_END.length)
 	return updated.replace(
 		COUNT_PATTERN,
-		`**${plural(total, 'tool')}** in **${familyWord(families.length)}**`
+		`**${plural(total, 'tool')}** in **${categoryWord(categories.length)}**`
 	)
 }
 
