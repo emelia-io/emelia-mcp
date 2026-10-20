@@ -1,10 +1,7 @@
 {
   "mcpServers": {
     "emelia": {
-      "url": "https://mcp.emelia.io/mcp",
-      "headers": {
-        "Authorization": "${env:EMELIA_API_KEY}"
-      }
+      "url": "https://mcp.emelia.io/mcp?toolsets=campaigns,lists,enrichment"
     }
   }
 }

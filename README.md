@@ -10,39 +10,39 @@
 <h1 align="center">Emelia MCP Server</h1>
 
 <p align="center">
-  Connect Claude, Cursor, VS Code or any MCP client to your Emelia account.<br>
-  Run your cold email and LinkedIn outreach from your AI assistant: campaigns, lists, contacts, enrichment and warmup.
+  Connect Claude, ChatGPT, Cursor, VS Code or any MCP client to your Emelia account.<br>
+  Run your cold email and LinkedIn outreach from your AI assistant: campaigns and sequences, lists, enrichment, LinkedIn extractions, mailboxes and the inbox.
 </p>
 
 <p align="center">
   <a href="https://modelcontextprotocol.io"><img src="https://img.shields.io/badge/MCP-Streamable_HTTP-1F344B" alt="MCP: Streamable HTTP"></a>
-  <a href="#authentication"><img src="https://img.shields.io/badge/auth-API_key-1F344B" alt="Auth: API key"></a>
+  <a href="#authentication"><img src="https://img.shields.io/badge/auth-OAuth_2.1_%7C_API_key-1F344B" alt="Auth: OAuth 2.1 or API key"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-1F344B" alt="License: MIT"></a>
 </p>
 
 <p align="center">
-  <a href="https://docs.emelia.io/docs/ai/mcp">Documentation</a> ·
+  <a href="https://docs.emelia.io/docs/mcp">Documentation</a> ·
   <a href="https://emelia.io">Website</a> ·
   <a href="docs/TOOLS.md">Tools</a> ·
   <a href="examples">Examples</a> ·
   <a href="#support">Support</a>
 </p>
 
-> [!NOTE]
-> **Live.** The Emelia MCP server answers at `https://mcp.emelia.io/mcp` (version 0.1.0). It authenticates with an Emelia API key only: **OAuth is not supported yet**, so a client that can only sign in with OAuth, such as ChatGPT, cannot connect for now.
+[Emelia](https://emelia.io) is a cold email and LinkedIn prospecting platform. This repository documents its official [Model Context Protocol](https://modelcontextprotocol.io) server: a hosted, remote server that gives an AI assistant access to **your Emelia account**. The assistant can create campaigns, write their sequence, start and pause them, read their statistics and replies, manage lists and contacts, find and verify emails and phone numbers, run LinkedIn extractions, manage your sending mailboxes and their warmup, and, once the Inbox is set up, read, sort and answer the emails of your Emelia inbox.
 
-[Emelia](https://emelia.io) is a cold email and LinkedIn prospecting platform. This repository documents its official [Model Context Protocol](https://modelcontextprotocol.io) server: a hosted, remote server that gives an AI assistant access to **your Emelia account**, through your API key. The assistant can read your campaigns and their statistics, read the latest replies, create draft campaigns, manage lists and contacts (a contact added to a list enters the campaigns of that list), find and verify emails and phone numbers, and check the warmup of your mailboxes.
-
-There is nothing to install: add the server URL and your API key to your assistant.
+There is nothing to install: add the server URL to your assistant and sign in with your Emelia account.
 
 ## Contents
 
 - [What you can ask](#what-you-can-ask)
 - [Server URL](#server-url)
 - [Authentication](#authentication)
-- [Quick start](#quick-start): [Claude](#claude-claudeai-and-claude-desktop), [Claude Code](#claude-code), [ChatGPT](#chatgpt), [Cursor](#cursor), [VS Code](#vs-code), [Windsurf](#windsurf), [stdio clients](#clients-that-only-support-stdio)
+- [Quick start](#quick-start): [Claude](#claude-claudeai-and-claude-desktop), [Claude Code](#claude-code), [ChatGPT](#chatgpt), [Cursor](#cursor), [VS Code](#vs-code), [Windsurf](#windsurf), [stdio clients](#clients-that-only-support-stdio), [other clients](#other-clients)
+- [Tool categories](#tool-categories)
 - [Tools](#tools)
+- [The inbox tools](#the-inbox-tools)
 - [Security and guardrails](#security-and-guardrails)
+- [Quotas and limits](#quotas-and-limits)
 - [Privacy](#privacy)
 - [FAQ](#faq)
 - [En français](#en-français)
@@ -52,11 +52,11 @@ There is nothing to install: add the server URL and your API key to your assista
 
 | Ask your assistant | What happens |
 | --- | --- |
+| "Read the sequence guide, then write a sequence for my Q4 SaaS founders campaign: an email, a LinkedIn invitation two days later, and a follow-up email three days after that if they did not reply. Show it to me before you save it." | It reads `get_campaign_sequence_guide` and the campaign with `get_campaign`, shows you the sequence, then saves it with `update_campaign_steps`. |
 | "What is the reply rate of my Q4 SaaS founders campaign since Monday, step by step?" | It finds the campaign with `list_campaigns`, then reads the global and per step statistics with `get_campaign_stats`. |
-| "Show me the latest replies to that campaign and draft an answer to each one." | It reads the reply activities with `get_campaign_activities` and writes the drafts in the conversation. Nothing is sent: the server cannot send email. |
+| "Read the replies I received this week, tell me who asks for a meeting, and draft an answer to each of them. Do not send anything." | It lists the emails of the inbox with `list_emails`, reads the conversations with `get_thread` and prepares the answers with `draft_reply`. Nothing is sent until you approve a draft. |
 | "Find and verify the email of Hugo Martin at Brightlane, in France, then add him to my Warm leads list." | It runs `find_email` and `verify_email` (both spend credits), then `add_contact_to_list`. He enters the campaigns that use the list. |
-| "Here are 60 prospects: create a list called Paris agencies and add them." | It creates the list with `create_list` and loads the contacts with `add_contacts_to_list_bulk`, 100 at most per call, duplicates detected. |
-| "Do we already have jane.doe@example.com in one of our lists?" | It searches every list with `find_contact`. |
+| "Extract this Sales Navigator search, then find the emails of the contacts." | It starts the extraction with `create_linkedin_scraper`, follows it with `get_linkedin_scraper`, then runs `enrich_linkedin_scraper` (1 credit per email found). |
 | "Which of my mailboxes are disconnected, and which ones have a low warmup score?" | It checks `list_email_providers` and `get_warmup_status`. |
 
 ## Server URL
@@ -66,16 +66,32 @@ https://mcp.emelia.io/mcp
 ```
 
 - **Transport**: Streamable HTTP, stateless (`POST` only).
-- **Authentication**: your Emelia API key in the `Authorization` header (as is or as `Bearer <key>`), or in `X-Api-Key`. No OAuth yet.
-- **Scope**: the Emelia account of the key, with everything the key can do.
-- **Tools**: **26 tools** in **4 families**: campaigns, lists and contacts, enrichment, deliverability.
-- **Plans**: every Emelia plan, within the API quota of the account (see [Quotas and limits](#quotas-and-limits)).
+- **Authentication**: sign in with your Emelia account (OAuth 2.1, recommended), or an Emelia API key in the `Authorization` header (as is or as `Bearer <key>`) or in `X-Api-Key`.
+- **Scope**: your whole Emelia account. Signing in gives the same access as an API key.
+- **Tools**: **143 tools** in **8 categories**, all of them by default, or the ones you pick with [`?toolsets=`](#tool-categories). The inbox tools appear once the [Inbox is set up](#the-inbox-tools).
+- **Plans**: every Emelia plan, within the quotas of the account (see [Quotas and limits](#quotas-and-limits)).
 - **Health check**: `https://mcp.emelia.io/mcp/health` answers `{"ok":true}`.
 - **Registry manifest**: [`server.json`](server.json), for the official MCP registry (`io.emelia/emelia`).
 
 ## Authentication
 
+### Sign in with your Emelia account (recommended)
+
+Most clients run the sign-in by themselves the first time they connect. There is nothing to copy:
+
+1. Add the server URL to your client. It opens an Emelia page in your browser, on `https://v3.emelia.io/oauth/consent/...`.
+2. Sign in to Emelia if needed, and check the account shown on the page.
+3. Click **Authorize**. You are sent back to your client, connected.
+
+The page waits 10 minutes; after that, start the connection again from the client. The assistant then acts as you, with the same access and the same per minute quota as an API key: it reads and changes your campaigns, lists, contacts and mailboxes, sends emails and spends your credits.
+
+The access lasts 30 days, and most clients renew it on their own: they stay connected as long as you use them at least once every 180 days. A client that does not renew it asks you to sign in again after 30 days.
+
+**Disconnect an assistant**: in the [Emelia app](https://v3.emelia.io), open **Settings**, **API & Webhooks**, **Connected apps**, and click **Disconnect**. The assistant loses access within 30 seconds.
+
 ### API key
+
+For scripts, CI jobs, a machine without a browser, or a client that cannot sign in with OAuth, use an Emelia API key instead:
 
 1. In the Emelia app, open **Settings**, **API & Webhooks** ([v3.emelia.io/settings/api](https://v3.emelia.io/settings/api)) and click **Create new key**.
 2. Copy the key: 48 letters and digits. Keep it like a password.
@@ -86,96 +102,97 @@ Send it in the `Authorization` header, as is:
 Authorization: YOUR_EMELIA_API_KEY
 ```
 
-`Authorization: Bearer YOUR_EMELIA_API_KEY` and `X-Api-Key: YOUR_EMELIA_API_KEY` work too. A key has no scopes: it can read and change your campaigns, lists and contacts and spend your credits. Create one key per client, so you can revoke one without touching the others.
+`Authorization: Bearer YOUR_EMELIA_API_KEY` and `X-Api-Key: YOUR_EMELIA_API_KEY` work too. With a key, the client does not ask you to sign in. A key has no scopes: it opens the whole account. Create one key per client, so you can revoke one without touching the others.
 
 **Revoke a key**: **Settings**, **API & Webhooks**, then disable or delete the key. Every client that uses it stops working at its next call.
 
-### OAuth
-
-**Not supported yet.** The server does not run an OAuth sign-in: every client must send an API key in a header. Clients that only connect to remote servers with OAuth, such as ChatGPT, cannot use it for now.
-
 ### For client developers
 
-A request without a key gets `401` with the JSON-RPC error `-32001` (`Missing Emelia API key`), and no `WWW-Authenticate` challenge. The server checks that a key is present, then forwards it to the Emelia API with each tool call: a wrong key shows up at the first tool call, not when listing the tools. Every request must accept both `application/json` and `text/event-stream`.
+OAuth clients need no configuration: a request without credentials gets a `401` with the JSON-RPC error `-32001` (`Authentication required. ...`) and a `WWW-Authenticate` header that points to the protected resource metadata (RFC 9728):
+
+```http
+WWW-Authenticate: Bearer resource_metadata="https://mcp.emelia.io/.well-known/oauth-protected-resource/mcp"
+```
+
+The authorization server is `https://mcp.emelia.io/`. Clients register through dynamic client registration (RFC 7591), then use the authorization code flow with PKCE (`S256`) and refresh tokens.
+
+An API key is checked at the first tool call, not when the tools are listed: a wrong key still lists the Emelia tools. Every request must accept both `application/json` and `text/event-stream`.
 
 ## Quick start
 
-Name the server `emelia` in every client: the tools then show up as `mcp__emelia__<tool>`, which the [Claude for B2B Outreach](#is-there-a-claude-code-plugin) plugin expects. Ready-to-copy files are in [`examples/`](examples).
+Name the server `emelia` in every client: the tools then show up as `mcp__emelia__<tool>`, which the [Claude for B2B Outreach](#is-there-a-claude-code-plugin) plugin expects. Claude loads tools on demand, so in Claude Code, Claude Desktop and claude.ai, connect the plain URL. The other clients send every tool to the model: give them only the [categories](#tool-categories) you need. Ready-to-copy files are in [`examples/`](examples).
 
 ### Claude (claude.ai and Claude Desktop)
 
-Custom connectors are added once to your Claude account and are then available in Claude Desktop too. The Claude free plan is limited to one custom connector.
+1. On claude.ai or in Claude Desktop, open **Customize**, **Connectors**, then **Add**, **Add custom connector** (Pro and Max plans).
+2. Name it `emelia` and enter `https://mcp.emelia.io/mcp` as the URL. Leave the advanced settings empty and add the connector.
+3. Click **Connect**: the Emelia page opens. Click **Authorize**.
 
-1. On claude.ai, open **Customize**, then **Connectors**. Click **+ Add**, then **Add custom connector**.
-2. Name it `Emelia` and enter `https://mcp.emelia.io/mcp` as the server URL.
-3. For authentication, choose **No sign-in**.
-4. Under **Request headers**, add the header `authorization` with your API key as the value, then click **Add**.
-
-The **Request headers** section is in beta at Anthropic and is not shown on every account yet. Without it, use the [configuration file of Claude Desktop](#clients-that-only-support-stdio) or [Claude Code](#claude-code). On Team and Enterprise plans, an owner adds the connector in **Organization settings**, **Connectors**: the header is then shared by the whole organization, and every member acts on the same Emelia account.
+The connector belongs to your Claude account: it works on claude.ai and in Claude Desktop, and its calls come from Anthropic's cloud, not from your computer. On Team and Enterprise plans, an owner adds the connector once in the organization settings, and each member connects their own Emelia account.
 
 ### Claude Code
+
+```bash
+claude mcp add --transport http --scope user emelia https://mcp.emelia.io/mcp
+```
+
+Then run `/mcp` in Claude Code, pick `emelia` and choose **Authenticate**. Your browser opens Emelia: check the account shown and click **Authorize**. Ask "list my campaigns" to test it.
+
+For a project shared with your team, commit the [`.mcp.json`](examples/claude-code/.mcp.json) of the examples at the root of the project: it holds no secret, and each person signs in with their own Emelia account. With an API key (CI, scripts, a machine without a browser):
 
 ```bash
 claude mcp add --transport http --scope user emelia https://mcp.emelia.io/mcp \
   --header "Authorization: YOUR_EMELIA_API_KEY"
 ```
 
-Then run `/mcp` in Claude Code: `emelia` should be connected. Ask "list my campaigns" to check the key. A project-level [`.mcp.json`](examples/claude-code/.mcp.json) that reads the key from an environment variable is in the [examples](examples/claude-code/README.md).
+More in [examples/claude-code](examples/claude-code/README.md).
 
 ### ChatGPT
 
-**Not supported yet.** ChatGPT connects to custom MCP servers with OAuth or without authentication, and cannot send an API key. Use Claude, Cursor, VS Code or Windsurf in the meantime.
+ChatGPT adds MCP servers in developer mode, on the paid plans:
+
+1. Turn on developer mode in **Settings**, **Apps & Connectors**, **Advanced settings**, **Developer mode**.
+2. Create a connector named `Emelia`, with the URL `https://mcp.emelia.io/mcp?toolsets=campaigns,lists,inbox` and the authentication **OAuth**.
+3. ChatGPT opens the Emelia page: click **Authorize**.
+
+The Emelia tools then show up in the tools of your conversations. Keep a [`toolsets`](#tool-categories) filter, with the categories you need, so that the list of tools stays short.
 
 ### Cursor
 
-<a href="https://cursor.com/install-mcp?name=emelia&config=eyJ1cmwiOiJodHRwczovL21jcC5lbWVsaWEuaW8vbWNwIiwiaGVhZGVycyI6eyJBdXRob3JpemF0aW9uIjoiWU9VUl9FTUVMSUFfQVBJX0tFWSJ9fQ=="><img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Add Emelia to Cursor" height="32"></a>
+<a href="https://cursor.com/install-mcp?name=emelia&config=eyJ1cmwiOiJodHRwczovL21jcC5lbWVsaWEuaW8vbWNwIn0="><img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Add Emelia to Cursor" height="32"></a>
 
-The button adds the server with a placeholder: replace `YOUR_EMELIA_API_KEY` with your key in the MCP settings of Cursor. Or add the server to `.cursor/mcp.json` in a project, or to `~/.cursor/mcp.json` for every project ([example](examples/cursor/.cursor/mcp.json)):
+The button adds the server with every category: add `?toolsets=` to its URL in the MCP settings of Cursor. Or add the server to `.cursor/mcp.json` in a project, or to `~/.cursor/mcp.json` for every project ([example](examples/cursor/.cursor/mcp.json)):
 
 ```json
 {
   "mcpServers": {
     "emelia": {
-      "url": "https://mcp.emelia.io/mcp",
-      "headers": {
-        "Authorization": "${env:EMELIA_API_KEY}"
-      }
+      "url": "https://mcp.emelia.io/mcp?toolsets=campaigns,lists,enrichment"
     }
   }
 }
 ```
 
-Cursor reads the key from the `EMELIA_API_KEY` environment variable, so it stays out of the file.
+Cursor then shows that `emelia` needs a sign-in, in its MCP settings: start it, and click **Authorize** on the Emelia page. Cursor sends every active tool to the model, hence the [`toolsets`](#tool-categories) filter. To use an API key, see [this example](examples/cursor/mcp.api-key.json).
 
 ### VS Code
 
-<a href="https://insiders.vscode.dev/redirect/mcp/install?name=emelia&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.emelia.io%2Fmcp%22%2C%22headers%22%3A%7B%22Authorization%22%3A%22YOUR_EMELIA_API_KEY%22%7D%7D"><img src="https://img.shields.io/badge/VS_Code-Install_server-0098FF?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="Install in VS Code" height="32"></a>
+<a href="https://insiders.vscode.dev/redirect/mcp/install?name=emelia&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.emelia.io%2Fmcp%22%7D"><img src="https://img.shields.io/badge/VS_Code-Install_server-0098FF?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="Install in VS Code" height="32"></a>
 
-The button adds the server with a placeholder to replace. To keep the key out of the file, add the server to `.vscode/mcp.json` with an input ([example](examples/vscode/.vscode/mcp.json)): VS Code asks for the key the first time the server starts and stores it securely.
+The button installs the server with every category: add `?toolsets=` to the URL in the configuration it creates. Or add the server to `.vscode/mcp.json`, or run **MCP: Open User Configuration** ([example](examples/vscode/.vscode/mcp.json)):
 
 ```json
 {
-  "inputs": [
-    {
-      "type": "promptString",
-      "id": "emelia-api-key",
-      "description": "Emelia API key",
-      "password": true
-    }
-  ],
   "servers": {
     "emelia": {
       "type": "http",
-      "url": "https://mcp.emelia.io/mcp",
-      "headers": {
-        "Authorization": "${input:emelia-api-key}"
-      }
+      "url": "https://mcp.emelia.io/mcp?toolsets=campaigns,inbox"
     }
   }
 }
 ```
 
-The tools are then available in Copilot Chat, in agent mode.
+When the server starts, VS Code asks you to allow the sign-in to `mcp.emelia.io`: accept, then click **Authorize** on the Emelia page. The tools are then available in Copilot Chat, in agent mode. To use an API key without writing it in the file, see [this example](examples/vscode/mcp.api-key.json).
 
 ### Windsurf
 
@@ -185,46 +202,36 @@ Windsurf (now Devin Desktop) reads `~/.config/devin/mcp_config.json`, or `%APPDA
 {
   "mcpServers": {
     "emelia": {
-      "url": "https://mcp.emelia.io/mcp",
-      "headers": {
-        "Authorization": "${env:EMELIA_API_KEY}"
-      }
+      "url": "https://mcp.emelia.io/mcp?toolsets=campaigns,lists,enrichment"
     }
   }
 }
 ```
 
-The key comes from the `EMELIA_API_KEY` environment variable.
+The sign-in runs over OAuth. The Cascade agent uses at most 100 tools at a time across all servers, fewer than the 143 of Emelia: keep a [`toolsets`](#tool-categories) filter. To use an API key, see [this example](examples/windsurf/mcp_config.api-key.json).
 
 ### Clients that only support stdio
 
-A client that can only start local servers, such as Claude Desktop through its configuration file, reaches Emelia through [`mcp-remote`](https://www.npmjs.com/package/mcp-remote), a local bridge that needs Node.js 18 or later. In `claude_desktop_config.json` (**Settings**, **Developer**, **Edit Config**, then restart Claude Desktop) ([example](examples/claude-desktop/claude_desktop_config.json)):
+A client that can only start local servers, such as Claude Desktop through its configuration file, reaches Emelia through [`mcp-remote`](https://www.npmjs.com/package/mcp-remote), a local bridge that needs Node.js 18 or later. In `claude_desktop_config.json` (**Settings**, **Developer**, **Edit Config**, then quit and restart Claude Desktop) ([example](examples/claude-desktop/claude_desktop_config.json)):
 
 ```json
 {
   "mcpServers": {
     "emelia": {
       "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote@0.1.38",
-        "https://mcp.emelia.io/mcp",
-        "--header",
-        "Authorization:${EMELIA_API_KEY}"
-      ],
-      "env": {
-        "EMELIA_API_KEY": "YOUR_EMELIA_API_KEY"
-      }
+      "args": ["-y", "mcp-remote@0.1.38", "https://mcp.emelia.io/mcp"]
     }
   }
 }
 ```
 
-The `mcp-remote` version is pinned on purpose: without a version, `npx` runs whatever release is the latest at each start, and that process holds your key. Move the pin only after reviewing the new release. Keep `Authorization:${EMELIA_API_KEY}` without a space: some clients split arguments on spaces.
+On first use, `mcp-remote` opens the Emelia page in your browser to sign in. For an API key, use [this example](examples/claude-desktop/claude_desktop_config.api-key.json) instead. In Claude Desktop, the [custom connector](#claude-claudeai-and-claude-desktop) needs no file and no bridge.
+
+The `mcp-remote` version is pinned on purpose: without a version, `npx` runs whatever release is the latest at each start, and that process holds your access to Emelia. Move the pin only after reviewing the new release.
 
 ### Other clients
 
-Any client that supports remote MCP servers over Streamable HTTP with a custom header works with the server URL and the `Authorization` header (or `X-Api-Key` if your client reserves `Authorization`). A quick test with `curl`:
+Any client that supports remote MCP servers over Streamable HTTP works with the server URL. Clients with MCP authorization sign you in on their own. For the others, send an API key in the `Authorization` header, or in `X-Api-Key` if your client reserves `Authorization`. If the client sends every tool to the model, add [`?toolsets=`](#tool-categories). A quick test of a key with `curl`:
 
 ```bash
 curl -s https://mcp.emelia.io/mcp \
@@ -234,69 +241,102 @@ curl -s https://mcp.emelia.io/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_campaigns","arguments":{}}}'
 ```
 
+## Tool categories
+
+The categories are a parameter of the server URL, not separate servers. Add `toolsets` to turn on only the ones you need:
+
+```text
+https://mcp.emelia.io/mcp?toolsets=campaigns,lists,enrichment
+```
+
+- Values: `campaigns`, `lists`, `enrichment`, `linkedin_scraper`, `mailboxes`, `account`, `inbox` and `inbox_settings`, separated by commas.
+- Without the parameter, every category is on. That is the right choice for Claude (Claude Code, Claude Desktop and claude.ai), which loads tools on demand.
+- Cursor, VS Code, ChatGPT, Windsurf and most other clients send the description of every tool to the model with each message, and some cap the number of tools: give them only the categories they need.
+- An unknown category gets an HTTP `400` that lists the valid ones, and the client cannot connect until the URL is fixed.
+- A tool of a category that is off cannot be called, even when the description of another tool names it: add its category to the URL if the assistant needs it.
+
+Ready-made combinations and how to change the categories in each client: [Tool categories](https://docs.emelia.io/docs/mcp/categories).
+
 ## Tools
 
-The server exposes **26 tools** in **4 families**. Every tool has a title, an input schema and, for the tools that only read or that delete, the MCP annotation that says so (`readOnlyHint`, `destructiveHint`). The full list with every parameter is in [docs/TOOLS.md](docs/TOOLS.md), generated from [tools.json](tools.json).
+The server exposes **143 tools** in **8 categories**. Every tool has a title, an input schema and, for the tools that only read or that are destructive, the MCP annotation that says so (`readOnlyHint`, `destructiveHint`); the inbox tools also declare an output schema. The full list with every parameter is in [docs/TOOLS.md](docs/TOOLS.md), generated from [tools.json](tools.json), and on [docs.emelia.io](https://docs.emelia.io/docs/mcp/tools).
 
 <!-- generated:tools-summary:start -->
-| Family | Tools | What it covers |
+| Category | Tools | What it covers |
 | --- | ---: | --- |
-| [Campaigns](docs/TOOLS.md#campaigns) | 7 | List and read campaigns, create drafts, statistics per step, latest activities and replies, manual tasks. |
-| [Lists and contacts](docs/TOOLS.md#lists-and-contacts) | 12 | Create, rename and delete lists; add contacts one by one or 100 at a time, update, find and delete them. |
-| [Enrichment](docs/TOOLS.md#enrichment) | 4 | Find a professional email or a phone number, verify an email, read a job that was still running. |
-| [Deliverability](docs/TOOLS.md#deliverability) | 3 | Sending mailboxes, disconnected mailboxes, warmup status and score, turning warmup on. |
-| **Total** | **26** | 13 Read, 8 Write, 2 Delete, 3 Credits |
+| [Campaigns](docs/TOOLS.md#campaigns) | 32 | Campaigns, their sequence and its guide, the contacts of a campaign, statistics and activities, manual tasks, attachments and voice notes. |
+| [Lists](docs/TOOLS.md#lists) | 17 | Lists, contacts, exports, custom variables. |
+| [Enrichment](docs/TOOLS.md#enrichment) | 5 | Find an email or a phone number, verify an email. |
+| [LinkedIn scraper](docs/TOOLS.md#linkedin-scraper) | 15 | Sales Navigator and LinkedIn search extractions, and the LinkedIn accounts that run them. |
+| [Mailboxes](docs/TOOLS.md#mailboxes) | 8 | Sending mailboxes, warmup, health check. |
+| [Account](docs/TOOLS.md#account) | 5 | Credits, webhooks, blacklist. |
+| [Inbox](docs/TOOLS.md#inbox) | 39 | Read, search, sort, reply to and send the emails of the inbox. |
+| [Inbox settings](docs/TOOLS.md#inbox-settings) | 22 | Labels, AI label rules, views, inbox filters, auto-forward rules. |
+| **Total** | **143** | 48 Read, 65 Write, 24 Destructive, 6 Credits |
 
-**Campaigns**: `list_campaigns`, `get_campaign`, `create_campaign`, `get_campaign_stats`, `get_campaign_activities`, `list_manual_tasks`, `complete_manual_task`
+**Campaigns**: `list_campaigns`, `get_campaign`, `create_campaign`, `get_campaign_stats`, `get_campaign_activities`, `list_manual_tasks`, `complete_manual_task`, `delete_campaign`, `rename_campaign`, `get_campaign_sequence_guide`, `update_campaign_steps`, `update_campaign_settings`, `update_campaign_recipients`, `update_campaign_identities`, `schedule_campaign_start`, `duplicate_campaign`, `start_campaign`, `pause_campaign`, `archive_campaign`, `reactivate_campaign`, `finish_campaign`, `send_campaign_test_email`, `list_campaign_contacts`, `add_contact_to_campaign`, `remove_contact_from_campaign`, `set_campaign_contact_field`, `get_activity_message`, `get_campaign_progress`, `list_step_contacts`, `export_campaign`, `upload_campaign_attachments`, `upload_linkedin_voice_note`
 
-**Lists and contacts**: `create_list`, `list_lists`, `get_list`, `rename_list`, `delete_list`, `get_list_contacts`, `get_contact`, `add_contact_to_list`, `add_contacts_to_list_bulk`, `update_contact`, `delete_contact`, `find_contact`
+**Lists**: `create_list`, `list_lists`, `get_list`, `rename_list`, `delete_list`, `get_list_contacts`, `get_contact`, `add_contact_to_list`, `add_contacts_to_list_bulk`, `update_contact`, `delete_contact`, `find_contact`, `find_campaigns_using_lists`, `export_list`, `get_list_export`, `create_custom_variable`, `check_custom_variable`
 
-**Enrichment**: `find_email`, `find_phone`, `verify_email`, `get_enrichment_result`
+**Enrichment**: `find_email`, `find_phone`, `verify_email`, `get_enrichment_result`, `list_enrichment_jobs`
 
-**Deliverability**: `list_email_providers`, `get_warmup_status`, `set_warmup`
+**LinkedIn scraper**: `list_linkedin_scrapers`, `get_linkedin_scraper`, `create_linkedin_scraper`, `rename_linkedin_scraper`, `delete_linkedin_scraper`, `pause_linkedin_scraper`, `resume_linkedin_scraper`, `split_linkedin_scraper`, `filter_linkedin_scraper`, `enrich_linkedin_scraper`, `download_linkedin_scraper`, `add_linkedin_scraper_webhook`, `remove_linkedin_scraper_webhook`, `connect_linkedin_scraper_account`, `update_linkedin_scraper_account`
+
+**Mailboxes**: `list_email_providers`, `get_warmup_status`, `set_warmup`, `create_email_provider`, `update_email_provider`, `delete_email_provider`, `update_sender_name`, `check_mailbox_health`
+
+**Account**: `list_credit_usage`, `list_webhooks`, `get_blacklist`, `add_to_blacklist`, `remove_from_blacklist`
+
+**Inbox**: `get_reference`, `get_workspace`, `list_mailboxes`, `sync_mailbox`, `get_unread_counts`, `suggest_contacts`, `set_workspace_timezone`, `list_emails`, `search_emails`, `get_email`, `get_thread`, `get_attachment`, `mark_emails_read`, `pin_emails`, `move_emails`, `trash_emails`, `apply_label_to_emails`, `remove_label_from_emails`, `dismiss_waiting_for_reply`, `get_unsubscribe_options`, `unsubscribe`, `get_draft`, `create_draft`, `update_draft`, `delete_draft`, `send_draft`, `send_email`, `draft_reply`, `draft_forward`, `schedule_draft`, `cancel_scheduled_send`, `add_draft_attachment`, `remove_draft_attachment`, `cancel_auto_reply`, `generate_magic_reply`, `list_snippets`, `create_snippet`, `update_snippet`, `delete_snippet`
+
+**Inbox settings**: `list_labels`, `create_label`, `update_label`, `delete_label`, `list_ai_label_rules`, `create_ai_label_rule`, `update_ai_label_rule`, `delete_ai_label_rule`, `classify_existing_emails`, `list_views`, `create_view`, `update_view`, `delete_view`, `list_inbox_filters`, `create_inbox_filter`, `update_inbox_filter`, `delete_inbox_filter`, `list_auto_forward_rules`, `create_auto_forward_rule`, `update_auto_forward_rule`, `delete_auto_forward_rule`, `get_auto_forward_logs`
 
 <!-- generated:tools-summary:end -->
 
-Not in the MCP server yet: starting or pausing a campaign, writing its sequence, choosing its senders and schedule, LinkedIn extractions and the blacklist. They are in the [Emelia REST API](https://docs.emelia.io/docs/all-endpoints) and in the Emelia app.
+Only the legacy campaigns, the email only or LinkedIn only campaigns of the previous Emelia campaign system, have no tools: use their [REST API routes](https://docs.emelia.io/docs/campaigns/legacy).
+
+## The inbox tools
+
+The 61 tools of the `inbox` and `inbox_settings` categories work on the Inbox of your Emelia account: they read, search, sort and answer its emails, and manage its labels, AI label rules, views, inbox filters, auto-forward rules and snippets.
+
+They appear only once the Inbox has been opened in Emelia. On an account that never opened it, the server lists the 82 other tools, with no error: open the **Inbox** tab of the [Emelia app](https://v3.emelia.io/inbox) once, wait a few minutes, then reconnect the server in your client. The links these tools return open the email or the draft in the Emelia inbox.
 
 ## Security and guardrails
 
-- **Your key opens the whole account.** There are no scopes: the assistant can change your campaigns, lists and contacts and spend your credits. Give each client its own key and revoke it when you stop using it.
-- **Deleting is flagged.** `delete_list` and `delete_contact` delete data for good and carry the `destructiveHint` annotation, so clients ask you before running them. Keep that confirmation on, and on the tools that spend credits.
-- **Nothing leaves your mailboxes.** No tool sends an email, replies to a prospect or starts a campaign: the assistant prepares, you launch from the Emelia app.
+- **The assistant acts as you.** Signed in or with an API key, it reaches the whole account, with no scopes: it can change your campaigns, lists, contacts and mailboxes, start campaigns, send emails and spend your credits. Keep the confirmations of your client on for the tools that delete data, send messages or spend credits.
+- **Destructive tools are flagged.** Deletions carry the `destructiveHint` annotation, and so do the inbox tools that send, forward or move emails to Trash or Spam, so that clients ask you before running them. `start_campaign` and `send_campaign_test_email` are not flagged, but they send real messages, and their descriptions say so.
+- **You approve every email the inbox tools send.** The tools that send (`send_draft`, `send_email`, `schedule_draft`, `unsubscribe`), the ones that create or change an auto-forward rule, and most deletions refuse to run without `confirm: true`, which the assistant may only set once you approved that exact email or action.
+- **Emails are treated as data.** The server instructs the assistant that emails, attachments, sender names and subjects come from third parties, and that it must never follow instructions found in them.
 - **No double charges by mistake.** The enrichment tools wait up to 90 seconds for their result. A longer job comes back with its `jobId`: read it with `get_enrichment_result`, which costs nothing, instead of starting a new search, which is billed again.
 - **Duplicates are detected.** Adding a contact whose email or LinkedIn URL is already in the list returns the existing contact instead of creating a second one.
 - **No secrets.** `list_email_providers` masks the passwords and secrets of your mailboxes.
-- **Stateless.** The server keeps no session and stores nothing: it forwards your key to the Emelia API on each call.
-- **Out of reach today**: sending email, starting or pausing campaigns, connecting or removing mailboxes, LinkedIn session cookies, API keys, webhooks and billing.
+- **Stateless.** The server keeps no session and stores no data of its own: Emelia holds the sign-in, and each call carries your access token or your key to the Emelia API.
 
-### Quotas and limits
+## Quotas and limits
 
-The tools count against the API quota of the account, shared with the Emelia REST API and every API key of the account. The enrichment tools and the list and contact tools are not counted.
+The server has no quota of its own: it uses the ones of your account, whether you signed in or use an API key.
 
-| Plan | Requests per minute |
-| --- | ---: |
-| No active plan | 30 |
-| Start | 100 |
-| Grow | 300 |
-| Scale | 1,000 |
+- **Emelia tools.** The tools of the `campaigns`, `linkedin_scraper`, `mailboxes` and `account` categories count in the per minute quota of the account, shared with the Emelia REST API: 30 requests per minute without an active plan, 100 on Start, 300 on Grow and 1,000 on Scale. The `lists` and `enrichment` tools are not counted. Over the quota, a tool fails with "Emelia API rate limit reached. Wait a moment and retry.", and the quota frees up within a minute. Details: [rate limits](https://docs.emelia.io/docs/rate-limits).
+- **Inbox tools.** 60 requests per minute and 10,000 per month per Emelia account; a tool that acts on several emails costs one request per email, with at most 60 emails per call. Safety limits apply per hour: 50 sends (send, schedule or unsubscribe), 200 recipients, 500 emails moved to Trash or Spam, and 30 Magic Reply suggestions.
 
-The window lasts 60 seconds from the first request. Over the limit, tools fail until the next window: wait a minute, then go on at a slower pace. Details: [rate limits](https://docs.emelia.io/docs/rate-limits).
+These tools spend Emelia credits ([prices](https://docs.emelia.io/docs/credits)):
 
-Only enrichment spends credits; campaigns, lists, contacts and statistics never do.
+| Tool | Cost |
+| --- | --- |
+| `find_email` | 1 credit, refunded when no email is found |
+| `find_phone` | 50 credits, refunded when no number is found |
+| `verify_email` | 0.25 credit, never refunded |
+| `enrich_linkedin_scraper` | 1 credit per email found |
+| `generate_magic_reply` | Emelia credits for each suggestion |
+| `classify_existing_emails` | Emelia credits for each email classified |
 
-| Tool | Cost | Refunded when |
-| --- | ---: | --- |
-| `find_email` | 1 credit | No email is found |
-| `find_phone` | 50 credits | No number is found |
-| `verify_email` | 0.25 credit | Never |
+Two more cases: without a subscription, `create_linkedin_scraper` extracts on credits, about 1 credit per 2 contacts; and while AI label rules exist, each new email of the inbox is classified with credits. Campaigns, lists, contacts, exports and statistics never cost credits.
 
-Requests to the server are limited to 4 MB. `add_contacts_to_list_bulk` takes 1 to 100 contacts, `get_list_contacts` returns 50 contacts per page by default and 100 at most, and `get_campaign_activities` returns the 30 most recent activities. Each tool returns the whole API response: ask for small pages on big lists.
+Requests to the server are limited to 4 MB. The files of `upload_campaign_attachments`, `upload_linkedin_voice_note` and `add_draft_attachment` travel in base64 inside that request: about 3 MB of file per call. Each tool returns the whole API response, except the CSV of `export_campaign`, `export_list`, `get_list_export` and `download_linkedin_scraper`, cut at 100,000 characters on a line boundary: ask for small pages on big lists, and narrow the exports with their filters. Errors and their causes: [Limits and troubleshooting](https://docs.emelia.io/docs/mcp/troubleshooting).
 
 ## Privacy
 
-- The assistant reaches the Emelia account of the key you gave it, until you revoke the key.
-- What the assistant reads (contacts, campaign statistics, replies) goes to the AI client you use, such as Claude or Cursor, under that provider's own terms. Use a dedicated key, and remove the server when you no longer need it.
+- The assistant reaches the Emelia account you signed in with, or the account of the key, until you disconnect it or revoke the key.
+- What the assistant reads (contacts, campaign statistics, emails and replies) goes to the AI client you use, such as Claude, ChatGPT or Cursor, under that provider's own terms. Turn on only the categories you need, and disconnect the assistant when you no longer use it.
 - The server keeps no session and stores no data of its own.
 - The [Emelia privacy policy](https://emelia.io/privacy_policy) applies to the service.
 
@@ -312,23 +352,31 @@ No. Clients that support remote MCP servers connect to the URL directly. Only cl
 
 ### Is it free?
 
-The server comes with your Emelia account. Its calls count in the per minute quota of your plan, and enrichment spends your credits as in the app.
+The server comes with your Emelia account. Its calls count in the quotas of your account, and the tools that spend credits do so as in the app.
 
-### Will OAuth be supported?
+### Is OAuth supported?
 
-Not today: the server authenticates with an API key only. That is why ChatGPT cannot connect yet.
+Yes, and it is the recommended way to connect: add the URL, sign in to Emelia and click **Authorize**. An API key still works, for scripts, CI and clients that cannot sign in. See [Authentication](#authentication).
 
 ### Which campaigns does the assistant see?
 
-The campaigns of the current Emelia app, where one sequence can mix email and LinkedIn steps. Archived campaigns and the legacy single-channel campaigns are left out.
+The campaigns of the current Emelia app, where one sequence can mix email and LinkedIn steps. Archived campaigns are left out of `list_campaigns`, and the legacy single-channel campaigns have no tools.
 
-### Can the assistant launch a campaign or send email?
+### Can the assistant write a sequence, launch a campaign or send email?
 
-No. It creates draft campaigns and feeds the lists your campaigns use; starting, pausing and writing the sequence happen in the Emelia app or through the REST API.
+Yes. It can replace the sequence of a campaign that is not running (`update_campaign_steps`, after reading `get_campaign_sequence_guide`), set its schedule, senders and lists, then start or pause it. In the inbox, it drafts replies and sends them once you approve them. Keep the confirmations of your client on: `start_campaign` sends to the real contacts of the campaign.
 
 ### How do contacts reach a campaign?
 
-Through lists. A campaign uses one or several lists: a contact added to one of them with `add_contact_to_list` or `add_contacts_to_list_bulk` enters the campaign.
+Through lists. A campaign uses one or several lists, set with `update_campaign_recipients`: a contact added to one of them with `add_contact_to_list` or `add_contacts_to_list_bulk` enters the campaign. `add_contact_to_campaign` adds a single contact through a list made for it.
+
+### My client limits the number of tools, or the context fills up.
+
+Turn on only the categories you need with [`?toolsets=`](#tool-categories), for example `?toolsets=campaigns,lists,enrichment`.
+
+### How do I disconnect an assistant?
+
+In the Emelia app, **Settings**, **API & Webhooks**, **Connected apps**, **Disconnect**. For an API key, disable or delete the key on the same page.
 
 ### Is there a Claude Code plugin?
 
@@ -345,11 +393,12 @@ The first version, a local stdio server from 2025, is kept on the [`legacy-stdio
 
 ## En français
 
-**Le serveur MCP d'Emelia** permet de piloter votre prospection cold email et LinkedIn depuis Claude, Cursor, VS Code ou tout client MCP : campagnes, listes, contacts, recherche d'email et de téléphone, vérification d'email et warmup, en langage naturel.
+**Le serveur MCP d'Emelia** permet de piloter votre prospection cold email et LinkedIn depuis Claude, ChatGPT, Cursor, VS Code ou tout client MCP, en langage naturel : campagnes et séquences, listes et contacts, recherche et vérification d'email et de téléphone, extractions LinkedIn, boîtes d'envoi et warmup, et la boîte de réception Emelia.
 
 - **Adresse** : `https://mcp.emelia.io/mcp`, rien à installer.
-- **Connexion** : votre clé d'API Emelia dans l'en-tête `Authorization`. Créez-la dans l'application, **Settings**, **API & Webhooks**. Pas encore d'OAuth : ChatGPT ne peut pas s'y connecter pour l'instant.
-- **Quotas** : ceux de votre forfait, de 30 à 1 000 requêtes par minute. Seule la recherche de coordonnées consomme des crédits.
+- **Connexion** : ajoutez l'adresse dans votre assistant, une page Emelia s'ouvre, cliquez sur **Authorize**. Une clé d'API (**Settings**, **API & Webhooks**) reste possible pour les scripts et les clients sans OAuth.
+- **Catégories** : 8 catégories d'outils, toutes actives par défaut ; `?toolsets=` n'active que celles dont vous avez besoin. Les outils de la boîte de réception apparaissent une fois l'Inbox ouverte dans Emelia.
+- **Quotas** : ceux de votre compte, de 30 à 1 000 requêtes par minute selon le forfait. La recherche de coordonnées et les fonctions d'IA de la boîte de réception consomment des crédits.
 
 ## Support
 

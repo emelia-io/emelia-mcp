@@ -16,6 +16,7 @@ body:
         - Claude (claude.ai or Claude Desktop, custom connector)
         - Claude Desktop (configuration file and mcp-remote)
         - Claude Code
+        - ChatGPT
         - Cursor
         - VS Code
         - Windsurf (Devin Desktop)
@@ -45,7 +46,7 @@ body:
     id: error
     attributes:
       label: Error code and message
-      description: For example `401 Missing Emelia API key`, with the message. Remove any key first.
+      description: For example `401 Authentication required`, with the message. Remove any key or token first.
       render: text
   - type: textarea
     id: config

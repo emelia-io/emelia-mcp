@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "emelia": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote@0.1.38",
+        "https://mcp.emelia.io/mcp",
+        "--header",
+        "Authorization:${EMELIA_API_KEY}"
+      ],
+      "env": {
+        "EMELIA_API_KEY": "YOUR_EMELIA_API_KEY"
+      }
+    }
+  }
+}

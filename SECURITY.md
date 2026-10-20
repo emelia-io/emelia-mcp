@@ -36,4 +36,4 @@ The Emelia app and the Emelia REST API are covered by the same contact address.
 
 ## Supply chain
 
-Using the hosted server needs no local code. Clients limited to local servers use the `mcp-remote` bridge through `npx`: the examples pin its version (`mcp-remote@0.1.38`), so that a new upstream release never runs with your key before it was reviewed.
+Using the hosted server needs no local code. Clients limited to local servers use the `mcp-remote` bridge through `npx`: the examples pin its version (`mcp-remote@0.1.38`), so that a new upstream release never runs with your key or your sign-in before it was reviewed.
